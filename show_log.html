@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>mdbeacon server log</title>
+<style>
+  body { margin:0; background:#0c0e12; color:#d6d6d6; font-family:Consolas,"Microsoft YaHei",monospace; }
+  header { padding:10px 16px; background:#161a22; border-bottom:1px solid #2a2f3a; color:#9fd0ff; font-size:14px; }
+  pre { margin:0; padding:16px; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-all; }
+  .hit { color:#ffd479; }
+  .dec { color:#7fffaa; }
+  .meta { color:#8a8f9a; }
+</style>
+</head>
+<body>
+<header>mdbeacon-lab / log_server.py  —  127.0.0.1:8090  —  exfil.log（实时读取）</header>
+<pre id="log">loading...</pre>
+<script>
+fetch('/exfil.log').then(r=>r.text()).then(t=>{
+  // 简单高亮：EXFIL HIT / DECODED 行加色
+  const html = t.split('\n').map(l=>{
+    if(l.includes('EXFIL HIT')) return '<span class="hit">'+l+'</span>';
+    if(l.includes('EXFIL DECODED')) return '<span class="dec">'+l+'</span>';
+    if(l.includes('--- server')) return '<span class="meta">'+l+'</span>';
+    return l;
+  }).join('\n');
+  document.getElementById('log').innerHTML = html;
+}).catch(e=>document.getElementById('log').textContent='读取 exfil.log 失败：'+e);
+</script>
+</body>
+</html>
